@@ -152,16 +152,10 @@ public class TeDelayAction : MonoBehaviour
             yield break;
         }
 
+        // 2) 在A切到B的瞬间，立刻检测另一物体是否为材质C
         mats[materialIndex] = materialB;
         targetRenderer.materials = mats;
 
-        // 让材质B至少显示一帧（或指定时长），否则立即回退会看起来像“没切换”
-        if (stayOnBSeconds > 0f)
-            yield return new WaitForSeconds(stayOnBSeconds);
-        else
-            yield return null;
-
-        // 2) 检测另一物体是否为材质C
         bool otherIsOnMaterialC = false;
         if (otherObjectRenderer != null && materialC != null)
         {
@@ -170,7 +164,7 @@ public class TeDelayAction : MonoBehaviour
                 otherIsOnMaterialC = otherMats[otherMaterialIndex] == materialC;
         }
 
-        // 3) 若为C：进入下一场景；否则：物体A从B切回A
+        // 3) 若为C：进入下一场景；否则：停留一段时间后从B切回A
         if (otherIsOnMaterialC)
         {
             if (nextSceneBuildIndex >= 0)
@@ -182,6 +176,11 @@ public class TeDelayAction : MonoBehaviour
         }
         else
         {
+            if (stayOnBSeconds > 0f)
+                yield return new WaitForSeconds(stayOnBSeconds);
+            else
+                yield return null;
+
             if (materialA != null)
             {
                 mats[materialIndex] = materialA;
