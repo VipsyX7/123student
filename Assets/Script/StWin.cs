@@ -4,18 +4,18 @@ using UnityEngine.UI;
 
 public class StWin : MonoBehaviour
 {
-    [Header("检测目标")]
-    [Tooltip("要检测是否处于材质C的物体渲染器。")]
-    [SerializeField] private Renderer targetRenderer;
+    [Header("检测目标（B/C/D 渲染器启用即计时）")]
+    [Tooltip("B 渲染器：启用时累计计时。")]
+    [SerializeField] private Renderer rendererB;
 
-    [Tooltip("目标材质C。")]
-    [SerializeField] private Material materialC;
+    [Tooltip("C 渲染器：启用时累计计时。")]
+    [SerializeField] private Renderer rendererC;
 
-    [Tooltip("渲染器材质数组中的槽位（一般为0）。")]
-    [SerializeField] private int materialIndex = 0;
+    [Tooltip("D 渲染器：启用时累计计时。")]
+    [SerializeField] private Renderer rendererD;
 
     [Header("计时与场景")]
-    [Tooltip("处于材质C时需要累计达到的秒数。")]
+    [Tooltip("处于 B/C/D 渲染器之一启用时需要累计达到的秒数。")]
     [Min(0f)]
     [SerializeField] private float requiredSeconds = 2f;
 
@@ -32,7 +32,7 @@ public class StWin : MonoBehaviour
     [Tooltip("满足条件时加载的场景索引（若 ≥0 则优先使用，否则使用 nextSceneName）。")]
     [SerializeField] private int nextSceneBuildIndex = -1;
 
-    [Tooltip("若离开材质C，是否将累计计时清零。")]
+    [Tooltip("若离开 B/C/D（都未启用），是否将累计计时清零。")]
     [SerializeField] private bool resetTimerWhenNotC = true;
 
     [Tooltip("调试用：打印累计时间。")]
@@ -43,23 +43,25 @@ public class StWin : MonoBehaviour
 
     private void Reset()
     {
-        targetRenderer = GetComponent<Renderer>();
+        // 尽量自动拾取：若你希望更准确，请在 Inspector 里手动指定 rendererB/rendererC/rendererD。
+        var rs = GetComponentsInChildren<Renderer>(true);
+        if (rs == null || rs.Length == 0) return;
+        if (rendererB == null && rs.Length >= 1) rendererB = rs[0];
+        if (rendererC == null && rs.Length >= 2) rendererC = rs[1];
+        if (rendererD == null && rs.Length >= 3) rendererD = rs[2];
     }
 
     private void Update()
     {
         if (_loaded) return;
-        if (targetRenderer == null || materialC == null) return;
 
-        var mats = targetRenderer.sharedMaterials;
-        bool isC =
-            mats != null &&
-            mats.Length > 0 &&
-            materialIndex >= 0 &&
-            materialIndex < mats.Length &&
-            mats[materialIndex] == materialC;
+        if (rendererB == null && rendererC == null && rendererD == null) return;
 
-        if (isC)
+        bool isBCD = (rendererB != null && rendererB.enabled)
+                      || (rendererC != null && rendererC.enabled)
+                      || (rendererD != null && rendererD.enabled);
+
+        if (isBCD)
         {
             _elapsed += Time.deltaTime;
             if (logTimer) Debug.Log($"{nameof(StWin)}：累计 {_elapsed:F2}/{requiredSeconds:F2}s");
