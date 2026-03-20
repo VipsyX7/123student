@@ -1,40 +1,51 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Serialization;
 
 public class StArtchange : MonoBehaviour
 {
-    [Header("目标物体与材质")]
-    [Tooltip("要切换材质的渲染器（例如 SpriteRenderer / MeshRenderer）。")]
-    [SerializeField] private Renderer targetRenderer;
+    [Header("渲染器：松开空格为 A，按住空格在 B/C/D 中随机其一")]
+    [Tooltip("松开空格时启用的渲染器。")]
+    [FormerlySerializedAs("targetRenderer")]
+    [SerializeField] private Renderer rendererA;
 
-    [Tooltip("默认材质（松开空格时使用）。")]
-    [SerializeField] private Material materialA;
+    [Tooltip("按住空格时可能随机选中的渲染器之一。")]
+    [SerializeField] private Renderer rendererB;
 
-    [Tooltip("按住空格时使用的材质。")]
-    [SerializeField] private Material materialB;
+    [SerializeField] private Renderer rendererC;
 
-    [Tooltip("替换渲染器材质数组中的哪个槽位（0 通常为第一个）。")]
-    [SerializeField] private int materialIndex = 0;
+    [SerializeField] private Renderer rendererD;
+
+    /// <summary>0=B, 1=C, 2=D，在空格按下的那一帧选定，按住期间不变。</summary>
+    private int _pickedBcdIndex;
 
     private void Reset()
     {
-        targetRenderer = GetComponent<Renderer>();
+        rendererA = GetComponent<Renderer>();
     }
 
     private void Update()
     {
         var kb = Keyboard.current;
-        if (kb == null || targetRenderer == null) return;
-        if (materialA == null || materialB == null) return;
+        if (kb == null) return;
+        if (rendererA == null || rendererB == null || rendererC == null || rendererD == null) return;
 
-        var mats = targetRenderer.materials;
-        if (mats == null || mats.Length == 0 || materialIndex < 0 || materialIndex >= mats.Length) return;
+        if (kb.spaceKey.wasPressedThisFrame)
+            _pickedBcdIndex = Random.Range(0, 3);
 
-        Material target = kb.spaceKey.isPressed ? materialB : materialA;
-        if (mats[materialIndex] != target)
+        if (kb.spaceKey.isPressed)
         {
-            mats[materialIndex] = target;
-            targetRenderer.materials = mats;
+            rendererA.enabled = false;
+            rendererB.enabled = _pickedBcdIndex == 0;
+            rendererC.enabled = _pickedBcdIndex == 1;
+            rendererD.enabled = _pickedBcdIndex == 2;
+        }
+        else
+        {
+            rendererA.enabled = true;
+            rendererB.enabled = false;
+            rendererC.enabled = false;
+            rendererD.enabled = false;
         }
     }
 }
