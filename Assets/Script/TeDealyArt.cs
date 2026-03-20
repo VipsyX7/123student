@@ -1,32 +1,22 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using UnityEngine.Serialization;
 using System;
 
 public class TeDelayAction : MonoBehaviour
 {
-    [Header("目标物体（A）与材质")]
-    [Tooltip("物体A：要切换材质的渲染器（例如 SpriteRenderer / MeshRenderer）。")]
-    [SerializeField] private Renderer targetRenderer;
+    [Header("目标物体（A）：切换渲染器")]
+    [Tooltip("物体 A 在状态 A（初始 / 回退）时应启用的渲染器。")]
+    [SerializeField] private Renderer rendererA;
 
-    [Tooltip("物体A的材质A（初始材质 / 回退材质）。不填则运行时自动记录当前材质为A。")]
-    [SerializeField] private Material materialA;
-
-    [Tooltip("物体A的材质B（延时后切换到此材质）。")]
-    [SerializeField] private Material materialB;
-
-    [Tooltip("物体A替换渲染器材质数组中的哪个槽位（0 通常对应第一个材质）。")]
-    [SerializeField] private int materialIndex = 0;
+    [Tooltip("物体 A 在状态 B（延时后切换）时应启用的渲染器。")]
+    [SerializeField] private Renderer rendererB;
 
     [Header("联动与场景")]
-    [Tooltip("用于判断的另一个物体：当其处于材质C时才进入下一场景，否则物体A恢复为材质A。")]
-    [SerializeField] private Renderer otherObjectRenderer;
-
-    [Tooltip("另一个物体必须处于的材质C。")]
-    [SerializeField] private Material materialC;
-
-    [Tooltip("另一个物体渲染器的材质槽位（用于判断是否为材质 C）。")]
-    [SerializeField] private int otherMaterialIndex = 0;
+    [Tooltip("联动对象上表示「状态 C」的渲染器：启用 (enabled) 即视为处于 C。不为 C 时进入下一场景；为 C 时切回 A/B。")]
+    [FormerlySerializedAs("otherConditionRenderer")]
+    [SerializeField] private Renderer otherRendererC;
 
     [Tooltip("满足条件时加载的场景名（在 Build Settings 中添加）。")]
     [SerializeField] private string nextSceneName = "";
@@ -38,7 +28,7 @@ public class TeDelayAction : MonoBehaviour
     [Tooltip("如果在等待期间再次按数字键，则是否取消前一次等待（用最后一次输入为准）。")]
     [SerializeField] private bool cancelPrevious = true;
 
-    [Tooltip("切到材质B后停留多久再检测/回退。设为 0 表示至少停留一帧。")]
+    [Tooltip("切到渲染器 B 后停留多久再检测/回退。设为 0 表示至少停留一帧。")]
     [SerializeField] private float stayOnBSeconds = 0f;
 
     [Tooltip("调试用：在 Console 打印触发的数字键。")]
@@ -49,21 +39,25 @@ public class TeDelayAction : MonoBehaviour
 
     private void Awake()
     {
-        if (targetRenderer == null)
-            targetRenderer = GetComponent<Renderer>();
-
-        // 若未手动指定材质A，则启动时记录当前材质作为材质A（回退用）
-        if (materialA == null && targetRenderer != null)
+        if (rendererA == null || rendererB == null)
         {
-            var mats = targetRenderer.sharedMaterials;
-            if (mats != null && mats.Length > 0 && materialIndex >= 0 && materialIndex < mats.Length)
-                materialA = mats[materialIndex];
+            var r = GetComponents<Renderer>();
+            if (r != null && r.Length >= 2)
+            {
+                if (rendererA == null) rendererA = r[0];
+                if (rendererB == null) rendererB = r[1];
+            }
         }
     }
 
     private void Reset()
     {
-        targetRenderer = GetComponent<Renderer>();
+        var r = GetComponents<Renderer>();
+        if (r != null && r.Length >= 2)
+        {
+            rendererA = r[0];
+            rendererB = r[1];
+        }
     }
 
     private void OnEnable()
@@ -113,15 +107,9 @@ public class TeDelayAction : MonoBehaviour
 
     private void Trigger(int seconds)
     {
-        if (targetRenderer == null)
+        if (rendererA == null || rendererB == null)
         {
-            Debug.LogWarning($"{nameof(TeDelayAction)}：未设置 targetRenderer。");
-            return;
-        }
-
-        if (materialB == null)
-        {
-            Debug.LogWarning($"{nameof(TeDelayAction)}：未设置 materialB。");
+            Debug.LogWarning($"{nameof(TeDelayAction)}：请设置 rendererA 与 rendererB。");
             return;
         }
 
@@ -136,36 +124,15 @@ public class TeDelayAction : MonoBehaviour
         if (seconds > 0)
             yield return new WaitForSeconds(seconds);
 
-        // 1) 物体A：材质A -> 材质B
-        var mats = targetRenderer.materials;
-        if (mats == null || mats.Length == 0)
-        {
-            Debug.LogWarning($"{nameof(TeDelayAction)}：targetRenderer 没有材质。");
-            _running = null;
-            yield break;
-        }
+        // 1) 物体 A：显示 B（切换渲染器）
+        rendererA.enabled = false;
+        rendererB.enabled = true;
 
-        if (materialIndex < 0 || materialIndex >= mats.Length)
-        {
-            Debug.LogWarning($"{nameof(TeDelayAction)}：materialIndex={materialIndex} 超出材质数量范围（数量={mats.Length}）。");
-            _running = null;
-            yield break;
-        }
+        // 2) 在切换到 B 的瞬间：联动对象渲染器启用 = 处于 C，否则 = 不为 C
+        bool isOtherInStateC = otherRendererC != null && otherRendererC.enabled;
 
-        // 2) 在A切到B的瞬间，立刻检测另一物体是否为材质C
-        mats[materialIndex] = materialB;
-        targetRenderer.materials = mats;
-
-        bool otherIsOnMaterialC = false;
-        if (otherObjectRenderer != null && materialC != null)
-        {
-            var otherMats = otherObjectRenderer.sharedMaterials;
-            if (otherMats != null && otherMaterialIndex >= 0 && otherMaterialIndex < otherMats.Length)
-                otherIsOnMaterialC = otherMats[otherMaterialIndex] == materialC;
-        }
-
-        // 3) 若为C：进入下一场景；否则：停留一段时间后从B切回A
-        if (otherIsOnMaterialC)
+        // 3) 不为 C → 进下一场景；为 C → 停留后切回渲染器 A
+        if (!isOtherInStateC)
         {
             if (nextSceneBuildIndex >= 0)
                 SceneManager.LoadScene(nextSceneBuildIndex);
@@ -181,11 +148,8 @@ public class TeDelayAction : MonoBehaviour
             else
                 yield return null;
 
-            if (materialA != null)
-            {
-                mats[materialIndex] = materialA;
-                targetRenderer.materials = mats;
-            }
+            rendererA.enabled = true;
+            rendererB.enabled = false;
         }
 
         _running = null;
