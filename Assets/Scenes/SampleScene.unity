@@ -241,12 +241,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StWin
   targetRenderer: {fileID: 254144746}
-  materialC: {fileID: 2100000, guid: 9aae18f1831f5434e99ab5d9f98d6bcc, type: 2}
+  materialC: {fileID: 2100000, guid: 91b68cd43652e664987a4ec3c0d3ba18, type: 2}
   materialIndex: 0
   requiredSeconds: 3
   progressSlider: {fileID: 948034624}
   progressText: {fileID: 0}
-  nextSceneName: 1
+  nextSceneName: 2
   nextSceneBuildIndex: -1
   resetTimerWhenNotC: 0
   logTimer: 0
