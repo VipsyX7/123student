@@ -34,6 +34,19 @@ public class TeDelayAction : MonoBehaviour
     [Tooltip("调试用：在 Console 打印触发的数字键。")]
     [SerializeField] private bool logKeyTrigger = false;
 
+    [Header("切换到 B 时音频")]
+    [Tooltip("切到渲染器 B 时播放的音频片段。")]
+    [SerializeField] private AudioClip musicOnB;
+
+    [Tooltip("用于播放的 AudioSource。留空则在本物体上自动获取或添加。")]
+    [SerializeField] private AudioSource audioSource;
+
+    [Tooltip("是否循环播放。")]
+    [SerializeField] private bool loopMusicOnB = false;
+
+    [Tooltip("切到 B 时若正在播放其它片段，是否先 Stop 再播放本段。")]
+    [SerializeField] private bool stopAudioBeforePlayOnB = true;
+
     private Coroutine _running;
     private InputAction[] _numpadActions;
 
@@ -127,6 +140,7 @@ public class TeDelayAction : MonoBehaviour
         // 1) 物体 A：显示 B（切换渲染器）
         rendererA.enabled = false;
         rendererB.enabled = true;
+        PlayMusicOnSwitchToB();
 
         // 2) 在切换到 B 的瞬间：联动对象渲染器启用 = 处于 C，否则 = 不为 C
         bool isOtherInStateC = otherRendererC != null && otherRendererC.enabled;
@@ -153,5 +167,20 @@ public class TeDelayAction : MonoBehaviour
         }
 
         _running = null;
+    }
+
+    private void PlayMusicOnSwitchToB()
+    {
+        if (musicOnB == null) return;
+
+        if (audioSource == null)
+            audioSource = GetComponent<AudioSource>() ?? gameObject.AddComponent<AudioSource>();
+
+        if (stopAudioBeforePlayOnB && audioSource.isPlaying)
+            audioSource.Stop();
+
+        audioSource.clip = musicOnB;
+        audioSource.loop = loopMusicOnB;
+        audioSource.Play();
     }
 }
